@@ -55,8 +55,9 @@ function tone({ freq, type = 'sine', start = 0, dur = 0.12, gain = 0.5, glideTo 
 }
 
 // Successful tap. Pitch climbs as the score grows (capped), so it feels like
-// the round is building. `combo` adds a sparkle for rapid-fire taps.
-export function playPop(score = 0, combo = 0) {
+// the round is building. `combo` adds a sparkle for rapid-fire taps. `big` is
+// for the special 2x Jesus catch — a richer, brighter chime.
+export function playPop(score = 0, combo = 0, big = false) {
   if (!ctx || muted) return
   const base = 520 + Math.min(score, 60) * 9 // climbs ~520Hz -> ~1060Hz
   tone({ freq: base, type: 'triangle', dur: 0.12, gain: 0.55, glideTo: base * 1.5 })
@@ -66,6 +67,20 @@ export function playPop(score = 0, combo = 0) {
     // Combo sparkle — a quick high blip on top.
     tone({ freq: base * 2.5, type: 'sine', dur: 0.08, gain: 0.22, start: 0.02 })
   }
+  if (big) {
+    // 2x Jesus catch — add a bright perfect-fifth + octave for a "chime".
+    tone({ freq: base * 1.5, type: 'sine', dur: 0.18, gain: 0.3, start: 0.02 })
+    tone({ freq: base * 3, type: 'sine', dur: 0.16, gain: 0.16, start: 0.05 })
+  }
+}
+
+// Streak milestone bonus — a quick rising 3-note sparkle.
+export function playStreakBonus() {
+  if (!ctx || muted) return
+  const seq = [784, 988, 1319] // G5 B5 E6
+  seq.forEach((f, i) =>
+    tone({ freq: f, type: 'triangle', dur: 0.12, gain: 0.32, start: i * 0.05 })
+  )
 }
 
 // New difficulty stage kicks in — a downward "whoosh" sweep.

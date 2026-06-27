@@ -12,6 +12,22 @@ export const EMOJI_POOL = ['✝️', '🙏', '😇', '⛪', '📖', '🕊️', '
 // more PNGs in src/assets and add entries here to mix them in.
 export const IMAGE_POOL = [{ src: jesusImg, alt: 'Jesus', weight: 3 }]
 
+// ----------------------------------------------------------------------------
+//  Scoring
+// ----------------------------------------------------------------------------
+export const EMOJI_POINTS = 1 // points for tapping a normal emoji target
+export const JESUS_POINTS = 2 // the Jesus image target is worth double
+
+// ----------------------------------------------------------------------------
+//  Streak bonus — reward fast consecutive tapping.
+//  Keep tapping within STREAK_WINDOW_MS of your last hit to grow the streak.
+//  Every STREAK_BONUS_EVERY hits in a row drops a STREAK_BONUS_POINTS bonus.
+// ----------------------------------------------------------------------------
+export const STREAK_WINDOW_MS = 650 // max gap between taps to keep the streak alive
+export const STREAK_BADGE_MIN = 3 // show the "🔥 Streak!" badge once you reach this
+export const STREAK_BONUS_EVERY = 5 // award a bonus every Nth hit in a streak
+export const STREAK_BONUS_POINTS = 5 // points awarded per streak milestone
+
 // Round length in seconds.
 export const ROUND_SECONDS = 30
 

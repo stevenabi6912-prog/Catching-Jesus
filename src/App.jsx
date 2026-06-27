@@ -9,20 +9,33 @@ import {
   FINAL_COUNTDOWN_SECONDS,
   MUTE_KEY,
   NAME_MAX_LEN,
+  EMOJI_POINTS,
+  JESUS_POINTS,
+  STREAK_WINDOW_MS,
+  STREAK_BADGE_MIN,
+  STREAK_BONUS_EVERY,
+  STREAK_BONUS_POINTS,
 } from './config.js'
 
 // Weighted spawn pool: emojis (kind 'emoji') + image targets (kind 'img'),
 // where an image's `weight` repeats it so it spawns proportionally more often.
+// Each entry carries its point value (images default to the 2x Jesus value).
 const SPAWN_POOL = [
-  ...EMOJI_POOL.map((value) => ({ kind: 'emoji', value })),
+  ...EMOJI_POOL.map((value) => ({ kind: 'emoji', value, points: EMOJI_POINTS })),
   ...IMAGE_POOL.flatMap((img) =>
-    Array.from({ length: img.weight || 1 }, () => ({ kind: 'img', src: img.src, alt: img.alt }))
+    Array.from({ length: img.weight || 1 }, () => ({
+      kind: 'img',
+      src: img.src,
+      alt: img.alt,
+      points: img.points ?? JESUS_POINTS,
+    }))
   ),
 ]
 import {
   initAudio,
   setMuted as setAudioMuted,
   playPop,
+  playStreakBonus,
   playStageUp,
   playTick,
   playFanfare,
@@ -30,7 +43,6 @@ import {
 } from './audio.js'
 import { loadLeaderboard, isHighScore, saveScore } from './leaderboard.js'
 
-const COMBO_WINDOW_MS = 450
 
 export default function App() {
   const [screen, setScreen] = useState('start') // 'start' | 'playing' | 'end'
@@ -123,9 +135,9 @@ function StartScreen({ muted, onToggleMute, onStart, board }) {
       </div>
 
       <div className="how-to">
-        Tap as many spiritual emojis as you can in <b>30 seconds!</b> It starts
-        easy and gets harder every 5 seconds. The last 5 seconds are <b>wild.</b>{' '}
-        Ready?
+        Tap as many spiritual emojis as you can in <b>30 seconds!</b> Catching{' '}
+        <b>Jesus is worth 2×</b>, and fast tap streaks earn <b>bonus points.</b>{' '}
+        It gets harder every 5 seconds — the last 5 are <b>wild.</b> Ready?
       </div>
 
       <div className="btn-group">
@@ -166,6 +178,7 @@ function GameScreen({ onEnd }) {
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS)
   const [stage, setStage] = useState(0)
   const [flash, setFlash] = useState(false)
+  const [streak, setStreak] = useState(0)
 
   // Mutable game state (avoids re-render churn inside the rAF loop).
   const g = useRef({
@@ -178,7 +191,7 @@ function GameScreen({ onEnd }) {
     stage: 0,
     lastWhole: ROUND_SECONDS + 1,
     lastTapTime: 0,
-    combo: 0,
+    streak: 0,
     nextId: 1,
     raf: 0,
     ended: false,
@@ -213,25 +226,54 @@ function GameScreen({ onEnd }) {
     (id, clientX, clientY) => {
       const idx = g.targets.findIndex((t) => t.id === id)
       if (idx === -1) return
+      const target = g.targets[idx]
       g.targets.splice(idx, 1)
-      g.score += 1
-      setScore(g.score)
 
       const now = performance.now()
-      g.combo = now - g.lastTapTime < COMBO_WINDOW_MS ? g.combo + 1 : 1
+      // Grow the streak if this tap landed within the window of the last one.
+      g.streak = now - g.lastTapTime < STREAK_WINDOW_MS ? g.streak + 1 : 1
       g.lastTapTime = now
-      playPop(g.score, g.combo)
 
-      // Floating "+1" at the tap point (relative to play area).
+      const isJesus = target.kind === 'img'
+      const base = target.points ?? EMOJI_POINTS
+      g.score += base
+
+      // Streak milestone bonus.
+      let bonus = 0
+      if (g.streak > 0 && g.streak % STREAK_BONUS_EVERY === 0) {
+        bonus = STREAK_BONUS_POINTS
+        g.score += bonus
+      }
+
+      setScore(g.score)
+      setStreak(g.streak)
+      playPop(g.score, g.streak, isJesus)
+      if (bonus) playStreakBonus()
+
+      // Floating score text at the tap point (relative to play area).
       const rect = areaRef.current?.getBoundingClientRect()
       if (rect) {
+        const x = clientX - rect.left
+        const y = clientY - rect.top
         g.floaters.push({
           id: g.nextId++,
-          x: clientX - rect.left,
-          y: clientY - rect.top,
+          x,
+          y,
           born: now,
-          combo: g.combo,
+          text: isJesus ? `✝️ +${base}` : `+${base}`,
+          kind: isJesus ? 'jesus' : 'normal',
         })
+        if (bonus) {
+          // Second popup, nudged up, for the streak bonus.
+          g.floaters.push({
+            id: g.nextId++,
+            x,
+            y: y - 38,
+            born: now,
+            text: `🔥 STREAK +${bonus}`,
+            kind: 'bonus',
+          })
+        }
       }
     },
     [g]
@@ -296,8 +338,14 @@ function GameScreen({ onEnd }) {
       }
       g.targets = alive
 
+      // expire the streak if there hasn't been a tap within the window
+      if (g.streak > 0 && now - g.lastTapTime > STREAK_WINDOW_MS) {
+        g.streak = 0
+        setStreak(0)
+      }
+
       // cull floaters
-      g.floaters = g.floaters.filter((f) => now - f.born < 650)
+      g.floaters = g.floaters.filter((f) => now - f.born < 750)
 
       setTargets(g.targets.slice())
       setFloaters(g.floaters.slice())
@@ -327,7 +375,14 @@ function GameScreen({ onEnd }) {
           <span className="hud-label">SCORE</span>
           <span className="hud-value">{score}</span>
         </div>
-        <div className={`hud-timer${urgent ? ' urgent' : ''}`}>{timeLeft}</div>
+        <div className="hud-center">
+          <div className={`hud-timer${urgent ? ' urgent' : ''}`}>{timeLeft}</div>
+          {streak >= STREAK_BADGE_MIN && (
+            <div className="streak-badge" key={streak}>
+              🔥 {streak} Streak!
+            </div>
+          )}
+        </div>
         <div className="hud-stage">
           <span className="hud-label">STAGE</span>
           <span className="hud-value">{stage + 1}/6</span>
@@ -360,10 +415,10 @@ function GameScreen({ onEnd }) {
         {floaters.map((f) => (
           <div
             key={f.id}
-            className="floater"
+            className={`floater floater-${f.kind}`}
             style={{ left: f.x, top: f.y }}
           >
-            {f.combo >= 3 ? `+1 x${f.combo}!` : '+1'}
+            {f.text}
           </div>
         ))}
       </div>
@@ -375,10 +430,10 @@ function GameScreen({ onEnd }) {
 /*  END SCREEN                                                                */
 /* ========================================================================== */
 function resultTier(score) {
-  if (score >= 60) return { emoji: '🌟', title: 'Faith Champion!' }
-  if (score >= 45) return { emoji: '🏆', title: 'Amazing Work!' }
-  if (score >= 30) return { emoji: '💪', title: 'Great Job!' }
-  if (score >= 15) return { emoji: '😊', title: 'Good Effort!' }
+  if (score >= 150) return { emoji: '🌟', title: 'Faith Champion!' }
+  if (score >= 100) return { emoji: '🏆', title: 'Amazing Work!' }
+  if (score >= 60) return { emoji: '💪', title: 'Great Job!' }
+  if (score >= 30) return { emoji: '😊', title: 'Good Effort!' }
   return { emoji: '🙌', title: 'Keep Practicing!' }
 }
 
@@ -400,7 +455,7 @@ function EndScreen({ score, newHigh, board, onSubmit, onPlayAgain, onHome }) {
         {newHigh && <div className="new-high">🎉 New High Score! 🎉</div>}
         <h2 className="end-heading">{tier.title}</h2>
         <div className="final-score-value">{score}</div>
-        <div className="final-score-label">taps</div>
+        <div className="final-score-label">points</div>
 
         {!saved ? (
           <div className="name-entry">
