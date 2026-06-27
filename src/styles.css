@@ -277,6 +277,31 @@ body {
 }
 
 /* --------------------------------------------------------------------------
+   Countdown (3 · 2 · 1 · GO!)
+   -------------------------------------------------------------------------- */
+.countdown-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 58, 92, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+}
+.countdown-number {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(90px, 30vw, 200px);
+  color: var(--core-gold);
+  text-shadow: 4px 4px 0 rgba(0, 0, 0, 0.3);
+  animation: countPop 0.6s ease-out;
+}
+@keyframes countPop {
+  0% { transform: scale(2); opacity: 0; }
+  60% { transform: scale(0.9); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* --------------------------------------------------------------------------
    Game screen
    -------------------------------------------------------------------------- */
 .game-screen {

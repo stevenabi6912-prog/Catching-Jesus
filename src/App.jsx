@@ -68,8 +68,10 @@ export default function App() {
 
   const startGame = useCallback(() => {
     initAudio()
-    setScreen('playing')
+    setScreen('countdown')
   }, [])
+
+  const beginPlay = useCallback(() => setScreen('playing'), [])
 
   const endGame = useCallback((score) => {
     setLastScore(score)
@@ -96,6 +98,7 @@ export default function App() {
           board={board}
         />
       )}
+      {screen === 'countdown' && <Countdown onDone={beginPlay} />}
       {screen === 'playing' && <GameScreen onEnd={endGame} />}
       {screen === 'end' && (
         <EndScreen
@@ -174,6 +177,40 @@ function StartScreen({ muted, onToggleMute, onStart, board }) {
           <Leaderboard board={board} />
         </Modal>
       )}
+    </div>
+  )
+}
+
+/* ========================================================================== */
+/*  COUNTDOWN (3 · 2 · 1 · GO!)                                               */
+/* ========================================================================== */
+function Countdown({ onDone }) {
+  const [value, setValue] = useState(3)
+  useEffect(() => {
+    const seq = [3, 2, 1, 'GO!']
+    let i = 0
+    playTick(false) // beep for the initial "3"
+    const id = setInterval(() => {
+      i++
+      if (i < seq.length) {
+        setValue(seq[i])
+        if (seq[i] === 'GO!') playStreakBonus()
+        else playTick(false)
+      } else {
+        clearInterval(id)
+        onDone()
+      }
+    }, 700)
+    return () => clearInterval(id)
+  }, [onDone])
+
+  return (
+    <div className="screen">
+      <div className="countdown-overlay">
+        <div className="countdown-number" key={String(value)}>
+          {value}
+        </div>
+      </div>
     </div>
   )
 }
