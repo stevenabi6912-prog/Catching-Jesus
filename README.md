@@ -41,15 +41,19 @@ screen.
 
 ## Deploy to GitHub Pages
 
-`vite.config.js` uses `base: './'`, so the build works under any repo subpath.
+**Live site:** https://stevenabi6912-prog.github.io/Catching-Jesus/
+
+Deployment is automatic: every push to `main` triggers
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which builds the
+app and publishes it to GitHub Pages (Pages source is set to "GitHub Actions").
+Just commit and push:
 
 ```bash
-npm run build
-# push the dist/ folder to a gh-pages branch, e.g. with the gh-pages package:
-#   npx gh-pages -d dist
+git add -A && git commit -m "your change" && git push
 ```
 
-Then enable Pages for the `gh-pages` branch in the repo settings.
+`vite.config.js` uses `base: './'`, so the build works under the `/Catching-Jesus/`
+repo subpath.
 
 ## Design
 
