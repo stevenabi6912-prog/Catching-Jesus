@@ -46,7 +46,6 @@ import {
   playPop,
   playPenalty,
   playStreakBonus,
-  playStageUp,
   playTick,
   playFanfare,
   playHighScore,
@@ -362,7 +361,6 @@ function GameScreen({ onEnd }) {
       if (stageIdx !== g.stage) {
         g.stage = stageIdx
         setStage(stageIdx)
-        playStageUp()
       }
       const cfg = STAGES[stageIdx]
 

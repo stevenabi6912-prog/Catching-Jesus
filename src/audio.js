@@ -90,13 +90,6 @@ export function playStreakBonus() {
   )
 }
 
-// New difficulty stage kicks in — a downward "whoosh" sweep.
-export function playStageUp() {
-  if (!ctx || muted) return
-  tone({ freq: 900, type: 'sawtooth', dur: 0.34, gain: 0.3, glideTo: 240 })
-  tone({ freq: 450, type: 'sine', dur: 0.36, gain: 0.2, glideTo: 150, start: 0.02 })
-}
-
 // Final-5-seconds tick. `urgent` (last 3) is higher + louder.
 export function playTick(urgent = false) {
   tone({
