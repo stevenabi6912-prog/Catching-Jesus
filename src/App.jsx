@@ -74,10 +74,11 @@ export default function App() {
   const beginPlay = useCallback(() => setScreen('playing'), [])
 
   const endGame = useCallback((score) => {
+    const high = isHighScore(score)
     setLastScore(score)
-    setNewHigh(isHighScore(score))
+    setNewHigh(high)
     setScreen('end')
-    if (isHighScore(score)) playHighScore()
+    if (high) playHighScore()
     else playFanfare()
   }, [])
 

@@ -15,12 +15,13 @@ export function loadLeaderboard() {
   }
 }
 
-// Returns true if `score` would land on the board (used to show "New High Score!").
+// Returns true only if `score` beats the current best (the #1 score).
+// Used to show the "New High Score!" banner.
 export function isHighScore(score) {
   if (score <= 0) return false
-  const list = loadLeaderboard()
-  if (list.length < LEADERBOARD_SIZE) return true
-  return score > list[list.length - 1].score
+  const list = loadLeaderboard() // sorted high → low
+  const best = list.length ? list[0].score : 0
+  return score > best
 }
 
 // Adds an entry and returns the new top-10 list.
