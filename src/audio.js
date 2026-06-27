@@ -74,6 +74,13 @@ export function playPop(score = 0, combo = 0, big = false) {
   }
 }
 
+// Penalty — tapped a hazard (Satan). A low, dissonant descending buzz.
+export function playPenalty() {
+  if (!ctx || muted) return
+  tone({ freq: 220, type: 'sawtooth', dur: 0.32, gain: 0.4, glideTo: 80 })
+  tone({ freq: 233, type: 'square', dur: 0.3, gain: 0.22, glideTo: 90, start: 0.01 })
+}
+
 // Streak milestone bonus — a quick rising 3-note sparkle.
 export function playStreakBonus() {
   if (!ctx || muted) return

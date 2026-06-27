@@ -3,6 +3,7 @@ import jesusImg from './assets/jesus.png'
 import {
   EMOJI_POOL,
   IMAGE_POOL,
+  HAZARD_POOL,
   STAGES,
   ROUND_SECONDS,
   STAGE_SECONDS,
@@ -11,14 +12,15 @@ import {
   NAME_MAX_LEN,
   EMOJI_POINTS,
   JESUS_POINTS,
+  SCORE_FLOOR,
   STREAK_BADGE_MIN,
   STREAK_BONUS_EVERY,
   STREAK_BONUS_POINTS,
 } from './config.js'
 
-// Weighted spawn pool: emojis (kind 'emoji') + image targets (kind 'img'),
-// where an image's `weight` repeats it so it spawns proportionally more often.
-// Each entry carries its point value (images default to the 2x Jesus value).
+// Weighted spawn pool: emoji targets, image targets (kind 'img'), and hazards
+// (kind 'hazard', negative points). A `weight` repeats an entry so it spawns
+// proportionally more often. Each entry carries its own point value.
 const SPAWN_POOL = [
   ...EMOJI_POOL.map((value) => ({ kind: 'emoji', value, points: EMOJI_POINTS })),
   ...IMAGE_POOL.flatMap((img) =>
@@ -29,11 +31,20 @@ const SPAWN_POOL = [
       points: img.points ?? JESUS_POINTS,
     }))
   ),
+  ...HAZARD_POOL.flatMap((h) =>
+    Array.from({ length: h.weight || 1 }, () => ({
+      kind: 'hazard',
+      value: h.emoji,
+      alt: h.alt,
+      points: h.points,
+    }))
+  ),
 ]
 import {
   initAudio,
   setMuted as setAudioMuted,
   playPop,
+  playPenalty,
   playStreakBonus,
   playStageUp,
   playTick,
@@ -136,8 +147,8 @@ function StartScreen({ muted, onToggleMute, onStart, board }) {
       <div className="how-to">
         Tap as many spiritual emojis as you can in <b>30 seconds!</b> Catching{' '}
         <b>Jesus is worth 2×</b>, and catch streaks (no misses!) earn{' '}
-        <b>bonus points.</b> It gets harder every 5 seconds — the last 5 are{' '}
-        <b>wild.</b> Ready?
+        <b>bonus points</b> — but don't tap <b>👿 Satan</b> or you'll lose 5! It
+        gets harder every 5 seconds — the last 5 are <b>wild.</b> Ready?
       </div>
 
       <div className="btn-group">
@@ -228,12 +239,27 @@ function GameScreen({ onEnd }) {
       g.targets.splice(idx, 1)
 
       const now = performance.now()
-      // Catch streak: grows with every successful catch. It only resets when
-      // you miss (tap empty space) — see `miss` below — not on a time window.
-      g.streak += 1
-
-      const isJesus = target.kind === 'img'
+      const rect = areaRef.current?.getBoundingClientRect()
+      const x = rect ? clientX - rect.left : 0
+      const y = rect ? clientY - rect.top : 0
       const base = target.points ?? EMOJI_POINTS
+
+      // --- Hazard (Satan): lose points and break the streak. ---
+      if (target.kind === 'hazard') {
+        g.score = Math.max(SCORE_FLOOR, g.score + base) // base is negative
+        g.streak = 0
+        setScore(g.score)
+        setStreak(0)
+        playPenalty()
+        if (rect) {
+          g.floaters.push({ id: g.nextId++, x, y, born: now, text: `${base}`, kind: 'penalty' })
+        }
+        return
+      }
+
+      // --- Good catch: grows the streak (only a miss resets it). ---
+      g.streak += 1
+      const isJesus = target.kind === 'img'
       g.score += base
 
       // Streak milestone bonus.
@@ -248,11 +274,7 @@ function GameScreen({ onEnd }) {
       playPop(g.score, g.streak, isJesus)
       if (bonus) playStreakBonus()
 
-      // Floating score text at the tap point (relative to play area).
-      const rect = areaRef.current?.getBoundingClientRect()
       if (rect) {
-        const x = clientX - rect.left
-        const y = clientY - rect.top
         g.floaters.push({
           id: g.nextId++,
           x,
@@ -392,7 +414,9 @@ function GameScreen({ onEnd }) {
         {targets.map((t) => (
           <button
             key={t.id}
-            className={`target${t.kind === 'img' ? ' target-img' : ''}`}
+            className={`target${
+              t.kind === 'img' ? ' target-img' : t.kind === 'hazard' ? ' target-hazard' : ''
+            }`}
             style={{
               transform: `translate(${t.x}px, ${t.y}px) translate(-50%, -50%)`,
               width: t.size,

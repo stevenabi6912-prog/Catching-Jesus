@@ -12,11 +12,16 @@ export const EMOJI_POOL = ['✝️', '🙏', '😇', '⛪', '📖', '🕊️', '
 // more PNGs in src/assets and add entries here to mix them in.
 export const IMAGE_POOL = [{ src: jesusImg, alt: 'Jesus', weight: 3 }]
 
+// Hazard targets — tapping one PENALIZES you (negative points) and breaks your
+// streak. Keep the weight low so it's an occasional trap, not a constant one.
+export const HAZARD_POOL = [{ emoji: '👿', points: -5, weight: 2, alt: 'Satan' }]
+
 // ----------------------------------------------------------------------------
 //  Scoring
 // ----------------------------------------------------------------------------
 export const EMOJI_POINTS = 1 // points for tapping a normal emoji target
 export const JESUS_POINTS = 2 // the Jesus image target is worth double
+export const SCORE_FLOOR = 0 // score can't drop below this (hazard penalties)
 
 // ----------------------------------------------------------------------------
 //  Catch streak — reward consecutive catches without missing.
