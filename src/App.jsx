@@ -11,7 +11,6 @@ import {
   NAME_MAX_LEN,
   EMOJI_POINTS,
   JESUS_POINTS,
-  STREAK_WINDOW_MS,
   STREAK_BADGE_MIN,
   STREAK_BONUS_EVERY,
   STREAK_BONUS_POINTS,
@@ -136,8 +135,9 @@ function StartScreen({ muted, onToggleMute, onStart, board }) {
 
       <div className="how-to">
         Tap as many spiritual emojis as you can in <b>30 seconds!</b> Catching{' '}
-        <b>Jesus is worth 2×</b>, and fast tap streaks earn <b>bonus points.</b>{' '}
-        It gets harder every 5 seconds — the last 5 are <b>wild.</b> Ready?
+        <b>Jesus is worth 2×</b>, and catch streaks (no misses!) earn{' '}
+        <b>bonus points.</b> It gets harder every 5 seconds — the last 5 are{' '}
+        <b>wild.</b> Ready?
       </div>
 
       <div className="btn-group">
@@ -177,7 +177,6 @@ function GameScreen({ onEnd }) {
   const [score, setScore] = useState(0)
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS)
   const [stage, setStage] = useState(0)
-  const [flash, setFlash] = useState(false)
   const [streak, setStreak] = useState(0)
 
   // Mutable game state (avoids re-render churn inside the rAF loop).
@@ -190,7 +189,6 @@ function GameScreen({ onEnd }) {
     lastSpawn: 0,
     stage: 0,
     lastWhole: ROUND_SECONDS + 1,
-    lastTapTime: 0,
     streak: 0,
     nextId: 1,
     raf: 0,
@@ -230,9 +228,9 @@ function GameScreen({ onEnd }) {
       g.targets.splice(idx, 1)
 
       const now = performance.now()
-      // Grow the streak if this tap landed within the window of the last one.
-      g.streak = now - g.lastTapTime < STREAK_WINDOW_MS ? g.streak + 1 : 1
-      g.lastTapTime = now
+      // Catch streak: grows with every successful catch. It only resets when
+      // you miss (tap empty space) — see `miss` below — not on a time window.
+      g.streak += 1
 
       const isJesus = target.kind === 'img'
       const base = target.points ?? EMOJI_POINTS
@@ -279,6 +277,15 @@ function GameScreen({ onEnd }) {
     [g]
   )
 
+  // A miss = tapping empty play area. It breaks the streak. (Targets stop
+  // propagation, so this only fires when no target was hit.)
+  const miss = useCallback(() => {
+    if (g.streak !== 0) {
+      g.streak = 0
+      setStreak(0)
+    }
+  }, [g])
+
   useEffect(() => {
     const t0 = performance.now()
     g.startTime = t0
@@ -296,8 +303,6 @@ function GameScreen({ onEnd }) {
         g.stage = stageIdx
         setStage(stageIdx)
         playStageUp()
-        setFlash(true)
-        setTimeout(() => setFlash(false), 350)
       }
       const cfg = STAGES[stageIdx]
 
@@ -338,12 +343,6 @@ function GameScreen({ onEnd }) {
       }
       g.targets = alive
 
-      // expire the streak if there hasn't been a tap within the window
-      if (g.streak > 0 && now - g.lastTapTime > STREAK_WINDOW_MS) {
-        g.streak = 0
-        setStreak(0)
-      }
-
       // cull floaters
       g.floaters = g.floaters.filter((f) => now - f.born < 750)
 
@@ -369,7 +368,7 @@ function GameScreen({ onEnd }) {
   const urgent = timeLeft <= FINAL_COUNTDOWN_SECONDS
 
   return (
-    <div className={`screen game-screen${flash ? ' stage-flash' : ''}`}>
+    <div className="screen game-screen">
       <div className="hud">
         <div className="hud-score">
           <span className="hud-label">SCORE</span>
@@ -389,7 +388,7 @@ function GameScreen({ onEnd }) {
         </div>
       </div>
 
-      <div className="play-area" ref={areaRef}>
+      <div className="play-area" ref={areaRef} onPointerDown={miss}>
         {targets.map((t) => (
           <button
             key={t.id}
@@ -402,6 +401,7 @@ function GameScreen({ onEnd }) {
             }}
             onPointerDown={(e) => {
               e.preventDefault()
+              e.stopPropagation()
               hit(t.id, e.clientX, e.clientY)
             }}
           >
